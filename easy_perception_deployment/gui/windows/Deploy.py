@@ -16,6 +16,7 @@ import os
 import sys
 import json
 import subprocess
+import logging
 
 from PySide2.QtCore import QSize
 from PySide2.QtGui import QIcon
@@ -42,6 +43,8 @@ class DeployWindow(QWidget):
         '''
         super().__init__()
 
+        self.deploy_logger = logging.getLogger('deploy')
+
         self.debug = debug
 
         self._path_to_model = ''
@@ -62,11 +65,17 @@ class DeployWindow(QWidget):
 
         self.useCPU = True
 
-        self._path_to_session_config = '../config/session_config.json'
-        self._path_to_usecase_config = '../config/usecase_config.json'
-        self._path_to_input_image_json_file = '../config/input_image_topic.json'
+        self._path_to_session_config = ('../config/session_config.json')
+        self._path_to_usecase_config = ('../config/usecase_config.json')
+        self._path_to_input_image_json_file = (
+            '../config/input_image_topic.json')
 
-        self.usecase_list = ['Classification', 'Counting', 'Color-Matching', 'Localization', 'Tracking']
+        self.usecase_list = [
+            'Classification',
+            'Counting',
+            'Color-Matching',
+            'Localization',
+            'Tracking']
 
         session_config = None
         usecase_config = None
@@ -74,7 +83,9 @@ class DeployWindow(QWidget):
             session_config_json_obj = open(self._path_to_session_config)
             session_config = json.load(session_config_json_obj)
         else:
-            print('[ session_config.json ] is missing. Assigning default values')
+            self.deploy_logger.warning(
+                '[ session_config.json ] is missing.' +
+                'Assigning default values')
             self._path_to_model = 'filepath/to/onnx/model'
             self._path_to_label_list = 'filepath/to/classes/list/txt'
             self.visualizeFlag = True
@@ -84,8 +95,10 @@ class DeployWindow(QWidget):
             usecase_config_json_obj = open(self._path_to_usecase_config)
             usecase_config = json.load(usecase_config_json_obj)
         else:
-            print('[usecase_config.json] is missing.'
-                  'Assigning default Use Case MODE : [CLASSIFICATION] ')
+            self.deploy_logger.warning(
+                '[usecase_config.json] is missing.'
+                'Assigning default Use Case MODE : ' +
+                '[CLASSIFICATION] ')
             self.usecase_mode = 0
 
         try:
@@ -99,29 +112,35 @@ class DeployWindow(QWidget):
                 self.useCPU = True
             else:
                 self.useCPU = False
-        except:
-            print('[ session_config.json ] Exception. Assigning default values')
+        except (KeyError, TypeError) as e:
+            self.deploy_logger.exception("[ session_config.json ] - " +
+                                         "KeyError or TypeError detected" +
+                                         "Assigning default values")
             self._path_to_model = 'filepath/to/onnx/model'
             self._path_to_label_list = 'filepath/to/classes/list/txt'
             self.visualizeFlag = True
             self.useCPU = True
 
         try:
-            print(usecase_config["usecase_mode"])
             self.usecase_mode = int(usecase_config["usecase_mode"])
 
             if self.usecase_mode < 0 or self.usecase_mode > 4:
-                print('[usecase_config.json] Invalid Usecase Mode - FOUND.\n'
-                      'Assigning default Use Case MODE : [CLASSIFICATION] ')
+                self.deploy_logger.warning(
+                    '[ usecase_config.json ] - Invalid Usecase Mode' +
+                    ' - FOUND.\n'
+                    'Assigning default Use Case MODE : [CLASSIFICATION] ')
                 self.usecase_mode = 0
 
             # Rearranging usecase_list based on saved configuration.
             curr_usecase_mode = self.usecase_list[int(self.usecase_mode)]
             self.usecase_list.remove(curr_usecase_mode)
             self.usecase_list.insert(0, curr_usecase_mode)
-        except:
-            print('[usecase_config.json] Exception.'
-                  'Assigning default Use Case MODE : [CLASSIFICATION] ')
+        except TypeError:
+            self.deploy_logger.exception(
+                "[ usecase_config.json ] - " +
+                "TypeError detected" +
+                "Assigning default Use Case MODE : " +
+                "[CLASSIFICATION] ")
             self.usecase_mode = 0
 
         if self.doesFileExist(self._path_to_input_image_json_file):
@@ -147,26 +166,35 @@ class DeployWindow(QWidget):
         A Non-Return Getter function that prints EPD Deployment
         configurations that are not displayed clearly in EPD GUI, on terminal.
         '''
-        print ('[- EPD Deployment Configurations -]')
-        print('[ ONNX Model ] : ' + self._path_to_model )
-        print('[ Label List ] : ' + self._path_to_label_list )
-        print('[ Input Image Topic ] : ' + self._input_image_topic)
+        self.deploy_logger.info('[- EPD Deployment Configurations -]')
+        self.deploy_logger.info('[ ONNX Model ] : ' + self._path_to_model)
+        self.deploy_logger.info('[ Label List ] : ' + self._path_to_label_list)
+        self.deploy_logger.info(
+            '[ Input Image Topic ] : ' + self._input_image_topic)
 
     def setButtons(self):
         '''A Mutator function that defines all buttons in DeployWindow.'''
-        # ONNX Model to set the path to ONNX model and store in session_config.json
+        # ONNX Model to set the path to ONNX model and
+        # store in session_config.json
         self.model_button = QPushButton('ONNX Model', self)
         self.model_button.setIcon(QIcon('img/model.png'))
         self.model_button.setIconSize(QSize(75, 75))
-        self.model_button.setGeometry(0, 0, self._DEPLOY_WIN_W/2, self._DEPLOY_WIN_H/4)
+        self.model_button.setGeometry(
+            0,
+            0,
+            self._DEPLOY_WIN_W/2,
+            self._DEPLOY_WIN_H/4)
 
         index = self._path_to_model.find('data/model')
         if self.doesFileExist('../' + self._path_to_model[index:]):
-            self.model_button.setStyleSheet('background-color: rgba(0,150,10,255);')
+            self.model_button.setStyleSheet(
+                'background-color: rgba(0,150,10,255);')
         else:
-            self.model_button.setStyleSheet('background-color: rgba(200,10,0,255);')
+            self.model_button.setStyleSheet(
+                'background-color: rgba(200,10,0,255);')
 
-        # Label List to set the path to ONNX model and store in session_config.json
+        # Label List to set the path to ONNX model
+        # and store in session_config.json
         self.list_button = QPushButton('Label List', self)
         self.list_button.setIcon(QIcon('img/label_list.png'))
         self.list_button.setIconSize(QSize(75, 75))
@@ -177,9 +205,11 @@ class DeployWindow(QWidget):
 
         index = self._path_to_label_list.find('data/label_list')
         if self.doesFileExist('../' + self._path_to_label_list[index:]):
-            self.list_button.setStyleSheet('background-color: rgba(0,150,10,255);')
+            self.list_button.setStyleSheet(
+                'background-color: rgba(0,150,10,255);')
         else:
-            self.list_button.setStyleSheet('background-color: rgba(200,10,0,255);')
+            self.list_button.setStyleSheet(
+                'background-color: rgba(200,10,0,255);')
 
         # UseCase Config Dropdown to select usecase mode
         self.usecase_config_button = QComboBox(self)
@@ -191,21 +221,16 @@ class DeployWindow(QWidget):
             self.usecase_config_button.addItem(usecase)
 
         if self.doesFileExist(self._path_to_usecase_config):
-            self.usecase_config_button.setStyleSheet('background-color: rgba(0,150,10,255);')
+            self.usecase_config_button.setStyleSheet(
+                'background-color: rgba(0,150,10,255);')
         else:
-            self.usecase_config_button.setStyleSheet('background-color: rgba(200,10,0,255);')
-
-        # UseCase button to select use case and write to usecase_config.json
-        self.usecase_config_label = QLabel(self)
-        self.usecase_config_label.setText('Use Case =')
-        self.usecase_config_label.move(self._DEPLOY_WIN_W/2 - 90,
-                                       self._DEPLOY_WIN_H/4 + 40)
-        self.usecase_config_label.setBuddy(self.usecase_config_button)
+            self.usecase_config_button.setStyleSheet(
+                'background-color: rgba(200,10,0,255);')
 
         self.visualize_button = QPushButton(self)
         self.visualize_button.setGeometry(0,
                                           self._DEPLOY_WIN_H/4,
-                                          self._DEPLOY_WIN_W/4,
+                                          self._DEPLOY_WIN_W/2,
                                           self._DEPLOY_WIN_H/4)
         if self.visualizeFlag:
             self.visualize_button.setText('Visualize')
@@ -213,17 +238,19 @@ class DeployWindow(QWidget):
             self.visualize_button.setText('Action')
 
         self.register_topic_button = QPushButton(self)
-        self.register_topic_button.setGeometry(0,
-                                       self._DEPLOY_WIN_H * 2/4,
-                                       self._DEPLOY_WIN_W * 3/8,
-                                       self._DEPLOY_WIN_H/8)
+        self.register_topic_button.setGeometry(
+            0,
+            self._DEPLOY_WIN_H * 2/4,
+            self._DEPLOY_WIN_W * 3/8,
+            self._DEPLOY_WIN_H/8)
         self.register_topic_button.setText('Register Topic')
 
         self.topic_button = QTextEdit(self)
-        self.topic_button.setGeometry(self._DEPLOY_WIN_W * 3/8,
-                                       self._DEPLOY_WIN_H * 2/4,
-                                       self._DEPLOY_WIN_W * 5/8,
-                                       self._DEPLOY_WIN_H/8)
+        self.topic_button.setGeometry(
+            self._DEPLOY_WIN_W * 3/8,
+            self._DEPLOY_WIN_H * 2/4,
+            self._DEPLOY_WIN_W * 5/8,
+            self._DEPLOY_WIN_H/8)
         # Replace use of button with QTextEdit.
         # Read the run.launch.py file.
         # Read line 25 in the file and get the input image topic.
@@ -261,11 +288,12 @@ class DeployWindow(QWidget):
 
     def deployPackage(self):
         '''
-        A Mutator function that runs a bash script that checks if the _is_running
-        boolean flag is True or not.\n
-        If False, run bash script to run ROS2 package with session_config.json and
-        usecase_config.json
-        Otherwise, run bash script to kill ROS2 package processes remotely.
+        A Mutator function that runs a bash script that
+        checks if the _is_running boolean flag is True or not.\n
+        If False, run bash script to run ROS2 package with
+        session_config.json and usecase_config.json
+        Otherwise, run bash script to kill ROS2 package
+        processes remotely.
         '''
         if not self._is_running:
             self._deploy_process = subprocess.Popen(['./scripts/deploy.sh',
@@ -277,7 +305,7 @@ class DeployWindow(QWidget):
             self.run_button.updateGeometry()
             self._is_running = True
         else:
-            print ("Killing epd_test_container docker.")
+            self.deploy_logger.info("Killing epd_test_container docker.")
             self._kill_process = subprocess.Popen(['./scripts/kill.sh'])
             self.run_button.setText('Run')
             self.run_button.setIcon(QIcon('img/go.png'))
@@ -291,7 +319,9 @@ class DeployWindow(QWidget):
         run.launch.py file based on new image topic.
         '''
         new_image_topic = self.topic_button.toPlainText()
-        print('Rewriting Input Image Topic to: ' + new_image_topic)
+        self.deploy_logger.info(
+            'Rewriting Input Image Topic to: ' +
+            new_image_topic)
 
         dict = {"input_image_topic": new_image_topic}
         json_object = json.dumps(dict, indent=4)
@@ -304,7 +334,8 @@ class DeployWindow(QWidget):
         if os.path.exists(input_filepath):
             return True
         else:
-            print('WARNING: [ ', input_filepath, ' ] ', ' does not exist.')
+            self.deploy_logger.warning(
+                '[ ' + input_filepath + ' ] does not exist.')
             return False
 
     def setVisualizeFlag(self):
@@ -341,7 +372,7 @@ class DeployWindow(QWidget):
                                'No other configuration required.')
                 msgBox.exec()
 
-            print('Wrote to ../data/usecase_config.json')
+            self.deploy_logger.info('Wrote to ../data/usecase_config.json')
             dict = {"usecase_mode": 0}
             json_object = json.dumps(dict, indent=4)
             with open(self._path_to_usecase_config, 'w') as outfile:
@@ -362,22 +393,25 @@ class DeployWindow(QWidget):
         elif selected_usecase == 'Color-Matching':
             if not self.debug:
                 input_refimage_filepath, ok = (
-                    QFileDialog.getOpenFileName(self,
-                                                'Set the .png/.jpg color image to use',
-                                                os.path.abspath('../data'),
-                                                'Image Files (*.png *.jpg *.jpeg)'))
+                    QFileDialog.getOpenFileName(
+                        self,
+                        'Set the .png/.jpg color image to use',
+                        os.path.abspath('../data'),
+                        'Image Files (*.png *.jpg *.jpeg)'))
             else:
                 input_refimage_filepath = 'dummy_filepath_to_refimage'
                 ok = True
 
             if ok:
                 filepath_index = input_refimage_filepath.find('/data')
-                path_to_color_template = '.' + input_refimage_filepath[filepath_index:]
+                path_to_color_template = (
+                    '.' +
+                    input_refimage_filepath[filepath_index:])
             else:
-                print('No reference color template set.')
+                self.deploy_logger.warning('No reference color template set.')
                 return
 
-            print('Wrote to ../data/usecase_config.json')
+            self.deploy_logger.info('Wrote to ../data/usecase_config.json')
             dict = {
                 "usecase_mode": 2,
                 "path_to_color_template": path_to_color_template
@@ -387,10 +421,11 @@ class DeployWindow(QWidget):
             with open(self._path_to_usecase_config, 'w') as outfile:
                 outfile.write(json_object)
         else:
-            print('Invalid Use Case')
+            self.deploy_logger.warning('Invalid Use Case')
             sys.exit()
 
-        self.usecase_config_button.setStyleSheet('background-color: rgba(0,150,10,255);')
+        self.usecase_config_button.setStyleSheet(
+            'background-color: rgba(0,150,10,255);')
 
     def updateSessionConfig(self):
         '''A Mutator function that updates the session_config.json file.'''
@@ -435,10 +470,11 @@ class DeployWindow(QWidget):
 
             self._path_to_model = '.' + input_model_filepath[index:]
         else:
-            print('No ONNX model set.')
+            self.deploy_logger.warning('No ONNX model set.')
             return
 
-        self.model_button.setStyleSheet('background-color: rgba(0,150,10,255);')
+        self.model_button.setStyleSheet(
+            'background-color: rgba(0,150,10,255);')
         self.updateSessionConfig()
 
     def setLabelList(self):
@@ -460,7 +496,7 @@ class DeployWindow(QWidget):
 
             self._path_to_label_list = '.' + input_classes_filepath[index:]
         else:
-            print('No label list set.')
+            self.deploy_logger.warning('No label list set.')
             return
 
         self.list_button.setStyleSheet('background-color: rgba(0,150,10,255);')

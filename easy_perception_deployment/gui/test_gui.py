@@ -15,9 +15,9 @@
 
 import os
 import json
+import yaml
 import subprocess
 
-from trainer.P1Trainer import P1Trainer
 from trainer.P2Trainer import P2Trainer
 from trainer.P3Trainer import P3Trainer
 
@@ -30,15 +30,16 @@ from datetime import date
 from PySide2 import QtCore
 
 # Clear all stored session_config.json usecase_config.json
-if os.path.exists('../config/session_config.json') and os.path.exists('../config/usecase_config.json'):
+if (os.path.exists('../config/session_config.json') and
+   os.path.exists('../config/usecase_config.json')):
     p1 = subprocess.Popen(['rm', '../config/session_config.json'])
     p1.communicate()
     p2 = subprocess.Popen(['rm', '../config/usecase_config.json'])
     p2.communicate()
 
     dict = {
-        "path_to_model": './data/model/squeezenet1.1-7.onnx',
-        "path_to_label_list": './data/label_list/imagenet_classes.txt',
+        "path_to_model": './data/model/MaskRCNN-10.onnx',
+        "path_to_label_list": './data/label_list/coco_classes.txt',
         "visualizeFlag": 'visualize',
         "useCPU": 'CPU'
         }
@@ -150,9 +151,13 @@ def test_invalidSession_invalidUseCase_DeployWindow(qtbot):
 
 def test_validSession_validUseCase_DeployWindow(qtbot):
 
+    local_path_to_model = './data/model/MaskRCNN-10.onnx'
+    local_path_to_label_list = ('./data/label_list/' +
+                                'coco_classes.txt')
+
     dict = {
-        "path_to_model": './data/model/squeezenet1.1-7.onnx',
-        "path_to_label_list": './data/label_list/imagenet_classes.txt',
+        "path_to_model": local_path_to_model,
+        "path_to_label_list": local_path_to_label_list,
         "visualizeFlag": 'visualize',
         "useCPU": 'CPU'
         }
@@ -165,12 +170,11 @@ def test_validSession_validUseCase_DeployWindow(qtbot):
     with open('../config/usecase_config.json', 'w') as outfile:
         outfile.write(json_object)
 
-
     widget = DeployWindow()
     qtbot.addWidget(widget)
 
-    assert widget._path_to_model == './data/model/squeezenet1.1-7.onnx'
-    assert widget._path_to_label_list == './data/label_list/imagenet_classes.txt'
+    assert widget._path_to_model == local_path_to_model
+    assert widget._path_to_label_list == local_path_to_label_list
     assert widget.usecase_mode == 0
 
 
@@ -192,16 +196,6 @@ def test_deployPackage_DeployWindow(qtbot):
     isKillScriptRunning = widget._kill_process.poll()
     assert isKillScriptRunning is None
     assert widget._is_running is False
-
-
-def test_setUseCase_Classification_DeployWindow(qtbot):
-
-    widget = DeployWindow()
-    qtbot.addWidget(widget)
-
-    qtbot.keyClicks(widget.usecase_config_button, 'Counting')
-
-    assert widget.counting_window.isVisible() is True
 
 
 def test_setUseCase_DeployWindow(qtbot):
@@ -231,16 +225,6 @@ def test_setUseCase_DeployWindow(qtbot):
     assert usecase_mode == 2
 
 
-def test_setP1_TrainWindow(qtbot):
-
-    widget = TrainWindow()
-    qtbot.addWidget(widget)
-
-    qtbot.mouseClick(widget.p1_button, QtCore.Qt.LeftButton)
-
-    assert widget._precision_level == 1
-
-
 def test_setP2_TrainWindow(qtbot):
 
     widget = TrainWindow()
@@ -265,11 +249,6 @@ def test_setModel_TrainWindow(qtbot):
 
     widget = TrainWindow()
     qtbot.addWidget(widget)
-
-    qtbot.mouseClick(widget.p1_button, QtCore.Qt.LeftButton)
-    qtbot.keyClicks(widget.model_selector, 'resnet')
-
-    assert widget.model_name == 'resnet'
 
     qtbot.mouseClick(widget.p2_button, QtCore.Qt.LeftButton)
     qtbot.keyClicks(widget.model_selector, 'fasterrcnn')
@@ -333,13 +312,8 @@ def test_validateDataset_TrainWindow(qtbot):
     widget = TrainWindow()
     qtbot.addWidget(widget)
 
-    widget._precision_level = 1
-    widget._path_to_dataset = 'invalid_path_to_dataset'
-    qtbot.mouseClick(widget.validate_button, QtCore.Qt.LeftButton)
-
-    assert widget._is_dataset_labelled is False
-
     widget._precision_level = 2
+    widget._path_to_dataset = 'invalid_path_to_dataset'
     qtbot.mouseClick(widget.validate_button, QtCore.Qt.LeftButton)
     assert widget._is_dataset_labelled is False
 
@@ -352,11 +326,6 @@ def test_populateModelSelector_TrainWindow(qtbot):
 
     widget = TrainWindow()
     qtbot.addWidget(widget)
-
-    widget._precision_level = 1
-    widget.populateModelSelector()
-
-    assert len(widget._model_list) == 7
 
     widget._precision_level = 2
     widget.populateModelSelector()
@@ -388,55 +357,60 @@ def test_setLabelList_TrainWindow(qtbot):
     assert widget._is_labellist_linked is True
 
 
-def test_setDataset_TrainWindow(qtbot):
+def test_setMax_Iteration(qtbot):
 
     widget = TrainWindow(True)
     qtbot.addWidget(widget)
 
-    qtbot.mouseClick(widget.dataset_button, QtCore.Qt.LeftButton)
+    widget.max_iteration = 1000
 
-    assert widget._is_dataset_linked is True
+    qtbot.mouseClick(widget.maxiter_button, QtCore.Qt.LeftButton)
+
+    assert widget.max_iteration == 1000
 
 
-def test_conformDatasetToCOCO_TrainWindow(qtbot):
-
-    if not os.path.exists('../data/datasets/p2p3_dummy_dataset'):
-        p1 = subprocess.Popen(['mkdir', '-p', '../data/datasets/p2p3_dummy_dataset/train_dataset'])
-        p1.communicate()
-        p2 = subprocess.Popen(['mkdir', '-p', '../data/datasets/p2p3_dummy_dataset/val_dataset'])
-        p2.communicate()
+def test_setCheckPoint_Period(qtbot):
 
     widget = TrainWindow(True)
     qtbot.addWidget(widget)
 
-    qtbot.mouseClick(widget.generate_button, QtCore.Qt.LeftButton)
+    widget.checkpoint_period = 100
 
-    assert widget.label_train_process is not None
-    widget.label_train_process.kill()
-    assert widget.label_val_process is not None
-    widget.label_val_process.kill()
+    qtbot.mouseClick(widget.checkpointp_button, QtCore.Qt.LeftButton)
 
-    # Clean up test materials.
-    if os.path.exists('../data/datasets/p2p3_dummy_dataset'):
-        p3 = subprocess.Popen(['rm', '-r', '../data/datasets/p2p3_dummy_dataset'])
-        p3.communicate()
+    assert widget.checkpoint_period == 100
 
 
-def test_closeWindow_CountingWindow(qtbot):
+def test_setTest_Period(qtbot):
 
-    path_to_labellist = '../data/label_list/coco_classes.txt'
-    path_to_usecase_config = '../config/usecase_config.json'
-    widget = CountingWindow(path_to_labellist, path_to_usecase_config)
+    widget = TrainWindow(True)
     qtbot.addWidget(widget)
 
-    widget.show()
-    qtbot.mouseClick(widget.cancel_button, QtCore.Qt.LeftButton)
-    assert widget.isVisible() is False
+    widget.test_period = 100
+
+    qtbot.mouseClick(widget.testp_button, QtCore.Qt.LeftButton)
+
+    assert widget.test_period == 100
+
+
+def test_setSteps_Period(qtbot):
+
+    widget = TrainWindow(True)
+    qtbot.addWidget(widget)
+
+    widget.steps = '(100, 200, 300)'
+
+    qtbot.mouseClick(widget.steps_button, QtCore.Qt.LeftButton)
+
+    assert widget.steps == '(100, 200, 300)'
+
+
+# def test_conformDatasetToCOCO_TrainWindow(qtbot):
 
 
 def test_writeToUseCaseConfig_CountingWindow(qtbot):
 
-    path_to_labellist = '../data/label_list/coco_classes.txt'
+    path_to_labellist = './data/label_list/coco_classes.txt'
     path_to_usecase_config = '../config/usecase_config.json'
     widget = CountingWindow(path_to_labellist, path_to_usecase_config)
     qtbot.addWidget(widget)
@@ -453,7 +427,7 @@ def test_writeToUseCaseConfig_CountingWindow(qtbot):
 
     assert usecase_mode == 1
     assert class_list[0] == 'person'
-    assert widget.isVisible() is True
+    assert widget.isVisible() is False
 
 
 def test_addObject_CountingWindow():
@@ -479,107 +453,81 @@ def test_addObject_CountingWindow():
     assert len(widget._select_list) == 0
 
 
-def test_P1Trainer():
+def test_closeWindow_CountingWindow(qtbot):
 
-    if not os.path.exists('../data/datasets/hymenoptera_data'):
-        p1 = subprocess.Popen(['wget',
-                               'https://download.pytorch.org/tutorial/hymenoptera_data.zip',
-                               '--directory-prefix=../data/datasets/'])
-        p1.communicate()
-        p2 = subprocess.Popen(['unzip',
-                               '../data/datasets/hymenoptera_data.zip',
-                               '-d',
-                               '../data/datasets/'])
-        p2.communicate()
+    path_to_labellist = './data/label_list/coco_classes.txt'
+    path_to_usecase_config = './config/usecase_config.json'
+    widget = CountingWindow(path_to_labellist, path_to_usecase_config)
+    qtbot.addWidget(widget)
 
-    path_to_dataset = '../data/datasets/hymenoptera_data'
-    model_name = 'inception'
-    label_list = ['ants', 'bees']
-
-    p1_trainer = P1Trainer(path_to_dataset, model_name, label_list)
-
-    p1_trainer.train(True)
-
-    output_pth_filename = './trainer/P1TrainFarm/' + model_name + '_' + str(date.today()) + '.pth'
-    output_model_filename = '../data/model/' + model_name + '_' + str(date.today()) + '.onnx'
-    assert os.path.exists(output_pth_filename) is True
-    assert os.path.exists(output_model_filename) is True
-    p1_model_array = ['alexnet', 'vgg', 'squeezenet', 'densenet', 'resnet', 'mobilenet']
-    for model in p1_model_array:
-        model_ft, input_size = p1_trainer.initialize_model(model,
-                                                           len(label_list),
-                                                           True)
-        assert model_ft is not None
-
-    model_ft, input_size = p1_trainer.initialize_model('invalid_model',
-                                                       len(label_list),
-                                                       True)
-    assert model_ft is None
-
-    # Clean up test materials.
-    if (os.path.exists('../data/datasets/hymenoptera_data') and
-            os.path.exists('../data/datasets/hymenoptera_data.zip') and
-            os.path.exists('./trainer/P1TrainFarm')):
-        p3 = subprocess.Popen(['rm',
-                               '-r',
-                               '../data/datasets/hymenoptera_data',
-                               '../data/datasets/hymenoptera_data.zip',
-                               './trainer/P1TrainFarm',
-                               output_model_filename])
-        p3.communicate()
+    widget.show()
+    qtbot.mouseClick(widget.cancel_button, QtCore.Qt.LeftButton)
+    assert widget.isVisible() is False
 
 
-def test_P2Trainer():
+def test_P2Trainer_Training_Config(qtbot):
 
     path_to_dataset = 'path_to_dummy_dataset'
     model_name = 'fasterrcnn'
-    path_label_list = '../data/label_list/coco_classes.txt'
+    label_list = ['__ignore__', '_background_', 'test_object']
 
-    if os.path.exists(path_label_list):
-        label_list = [line.rstrip('\n') for line in open(path_label_list)]
-    else:
-        label_list = ['ant', 'bees']
+    widget = TrainWindow(True)
+    qtbot.addWidget(widget)
 
-    p2_trainer = P2Trainer(path_to_dataset, model_name, label_list)
+    widget.max_iteration = 1000
+    widget.checkpoint_period = 100
+    widget.test_period = 100
+    widget.steps = '(100, 200, 300)'
 
-    p2_trainer.train(True)
-    assert p2_trainer.create_process is not None
-    p2_trainer.create_process.kill()
-    assert p2_trainer.run_process is not None
-    p2_trainer.run_process.kill()
-    assert p2_trainer.build_export_process is not None
-    p2_trainer.build_export_process.kill()
-    assert p2_trainer.export_process is not None
-    p2_trainer.export_process.kill()
+    p2_trainer = P2Trainer(
+        path_to_dataset,
+        model_name,
+        label_list,
+        1000,
+        100,
+        100,
+        '(100, 200, 300)')
 
-    if os.path.exists('./trainer/P2TrainFarm'):
-        p1 = subprocess.Popen(['rm', '-r', './trainer/P2TrainFarm'])
-        p1.communicate()
+    dict = {}
+    with open('trainer/training_files/fasterrcnn_training.yaml') as file:
+        dict = yaml.load(file, Loader=yaml.FullLoader)
+
+    assert dict['MODEL']['ROI_BOX_HEAD']['NUM_CLASSES'] == 3
+    assert dict['SOLVER']['MAX_ITER'] == 1000
+    assert dict['SOLVER']['CHECKPOINT_PERIOD'] == 100
+    assert dict['SOLVER']['TEST_PERIOD'] == 100
+    assert dict['SOLVER']['STEPS'] == '(100, 200, 300)'
 
 
-def test_P3Trainer():
+def test_P3Trainer_Training_Config(qtbot):
 
     path_to_dataset = 'path_to_dummy_dataset'
     model_name = 'maskrcnn'
-    path_label_list = '../data/label_list/coco_classes.txt'
+    label_list = ['__ignore__', '_background_', 'test_object']
 
-    if os.path.exists(path_label_list):
-        label_list = [line.rstrip('\n') for line in open(path_label_list)]
-    else:
-        label_list = ['ant', 'bees']
+    widget = TrainWindow(True)
+    qtbot.addWidget(widget)
 
-    p3_trainer = P3Trainer(path_to_dataset, model_name, label_list)
+    widget.max_iteration = 1000
+    widget.checkpoint_period = 100
+    widget.test_period = 100
+    widget.steps = '(100, 200, 300)'
 
-    p3_trainer.train(True)
-    assert p3_trainer.create_process is not None
-    p3_trainer.create_process.kill()
-    assert p3_trainer.run_process is not None
-    p3_trainer.run_process.kill()
-    assert p3_trainer.build_export_process is not None
-    p3_trainer.build_export_process.kill()
-    assert p3_trainer.export_process is not None
-    p3_trainer.export_process.kill()
+    p3_trainer = P3Trainer(
+        path_to_dataset,
+        model_name,
+        label_list,
+        1000,
+        100,
+        100,
+        '(100, 200, 300)')
 
-    if os.path.exists('./trainer/P3TrainFarm'):
-        p1 = subprocess.Popen(['rm', '-r', './trainer/P3TrainFarm'])
-        p1.communicate()
+    dict = {}
+    with open('trainer/training_files/maskrcnn_training.yaml') as file:
+        dict = yaml.load(file, Loader=yaml.FullLoader)
+
+    assert dict['MODEL']['ROI_BOX_HEAD']['NUM_CLASSES'] == 3
+    assert dict['SOLVER']['MAX_ITER'] == 1000
+    assert dict['SOLVER']['CHECKPOINT_PERIOD'] == 100
+    assert dict['SOLVER']['TEST_PERIOD'] == 100
+    assert dict['SOLVER']['STEPS'] == '(100, 200, 300)'

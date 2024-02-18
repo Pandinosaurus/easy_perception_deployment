@@ -14,6 +14,7 @@
 
 import os
 import json
+import logging
 
 from PySide2.QtCore import QSize
 from PySide2.QtGui import QIcon
@@ -23,9 +24,10 @@ from PySide2.QtWidgets import QMessageBox, QPushButton, QWidget
 
 class CountingWindow(QWidget):
     '''
-    The CountingWindow class is a PySide2 Graphical User Interface (GUI) window
-    that is called by DeployWindow class in order to configure a custom Counting
-    use-case and write to usecase_config.json.
+    The CountingWindow class is a PySide2
+    Graphical User Interface (GUI) window that is called by
+    DeployWindow class in order to configure a custom
+    Counting use-case and write to usecase_config.json.
     '''
     def __init__(self, path_to_label_list, _path_to_usecase_config):
         '''
@@ -36,6 +38,8 @@ class CountingWindow(QWidget):
         Calls setButtons function to populate window with button.
         '''
         super().__init__()
+
+        self.counting_logger = logging.getLogger('counting')
 
         self._COUNTING_WIN_H = 300
         self._COUNTING_WIN_W = 500
@@ -49,14 +53,14 @@ class CountingWindow(QWidget):
         path_to_label_list = '.' + path_to_label_list
 
         # Check if label-list file exits.
-        print("os.getcwd() =", os.getcwd())
-        print("path_to_label_list =", path_to_label_list)
         if not os.path.exists(path_to_label_list):
             msgBox = QMessageBox()
-            msgBox.setText('No label list selected. Please select a label list.')
+            msgBox.setText('No label list selected. ' +
+                           'Please select a label list.')
             msgBox.exec()
         else:
-            self._label_list = [line.rstrip('\n') for line in open(path_to_label_list)]
+            self._label_list = [
+                line.rstrip('\n') for line in open(path_to_label_list)]
             # If label-list file is empty
             if len(self._label_list) == 0:
                 msgBox = QMessageBox()
@@ -98,7 +102,8 @@ class CountingWindow(QWidget):
         self.selected_list_menu_label.move(0,
                                            self._COUNTING_WIN_H/3 - 25)
 
-        # Finish button to save the stored counting and write to usecase_config.json
+        # Finish button to save the stored counting and
+        # write to usecase_config.json
         self.finish_button = QPushButton('Finish', self)
         self.finish_button.setIcon(QIcon('img/go.png'))
         self.finish_button.setIconSize(QSize(75, 75))
@@ -122,7 +127,7 @@ class CountingWindow(QWidget):
 
     def writeToUseCaseConfig(self):
         '''A function that is triggered by the button labelled, Finish.'''
-        print('Wrote to ../data/usecase_config.json')
+        self.counting_logger.info('Wrote to ../data/usecase_config.json')
 
         dict = {
             "usecase_mode": 1,
@@ -132,6 +137,7 @@ class CountingWindow(QWidget):
 
         with open(self._path_to_usecase_config, 'w') as outfile:
             outfile.write(json_object)
+        self.close()
 
     def closeWindow(self):
         '''A function that is triggered by the button labelled, Cancel.'''
@@ -145,10 +151,9 @@ class CountingWindow(QWidget):
         # If selected object is a duplicate, ignore it.
         for i in range(0, len(self._select_list)):
             if self._label_list[index] == self._select_list[i]:
-                print('Duplicate object detected.')
+                self.counting_logger.warning('Duplicate object detected.')
                 return
 
-        print("len(self._label_list) =", len(self._label_list))
         self._select_list.append(self._label_list[index])
         self.selected_list_menu.addItem(self._label_list[index])
 
@@ -158,7 +163,7 @@ class CountingWindow(QWidget):
         Objects
         '''
         if len(self._select_list) == 0:
-            print('Select list is empty.')
+            self.counting_logger.warning('Select list is empty.')
             return
 
         self._select_list.remove(self._select_list[index])

@@ -14,6 +14,7 @@
 
 import os
 import json
+import logging
 
 from PySide2.QtCore import QSize
 from PySide2.QtGui import QIcon
@@ -23,8 +24,9 @@ from PySide2.QtWidgets import QMessageBox, QPushButton, QWidget
 
 class TrackingWindow(QWidget):
     '''
-    The TrackingWindow class is a PySide2 Graphical User Interface (GUI) window
-    that is called by DeployWindow class in order to configure a custom Tracking
+    The TrackingWindow class is a PySide2
+    Graphical User Interface (GUI) window that is called by
+    DeployWindow class in order to configure a custom Tracking
     use-case and write to usecase_config.json.
     '''
     def __init__(self, _path_to_usecase_config):
@@ -37,6 +39,8 @@ class TrackingWindow(QWidget):
         '''
         super().__init__()
 
+        self.tracking_logger = logging.getLogger('tracking')
+
         self._TRACKING_WIN_H = 150
         self._TRACKING_WIN_W = 300
 
@@ -48,9 +52,10 @@ class TrackingWindow(QWidget):
 
         self._selected_tracker_index = 0
         self._tracker_label_list = ['KCF', 'MEDIANFLOW', 'CSRT']
-        self._tracker_description_list = ['KCF - General Purpose Tracker.',
-                                    'MedianFlow - For objects with predictable movements.',
-                                    'CSRT - For objects with unpredictable movements.']
+        self._tracker_description_list = [
+            'KCF - General Purpose Tracker.',
+            'MedianFlow - For objects with predictable movements.',
+            'CSRT - For objects with unpredictable movements.']
 
         self.setWindowTitle('Choose OpenCV Tracker.')
         self.setGeometry(self._TRACKING_WIN_W, self._TRACKING_WIN_H,
@@ -70,7 +75,8 @@ class TrackingWindow(QWidget):
         for label in self._tracker_description_list:
             self.label_list_dropdown.addItem(label)
 
-        # Finish button to save the stored counting and write to usecase_config.json
+        # Finish button to save the stored counting
+        # and write to usecase_config.json
         self.finish_button = QPushButton('Done', self)
         self.finish_button.setIcon(QIcon('img/go.png'))
         self.finish_button.setIconSize(QSize(75, 75))
@@ -93,11 +99,12 @@ class TrackingWindow(QWidget):
 
     def writeToUseCaseConfig(self):
         '''A function that is triggered by the button labelled, Finish.'''
-        print('Wrote to ../data/usecase_config.json')
+        self.tracking_logger.info('Wrote to ../data/usecase_config.json')
 
         dict = {
             "usecase_mode": 4,
-            "track_type": self._tracker_label_list[self._selected_tracker_index]
+            "track_type": (self._tracker_label_list[
+                self._selected_tracker_index])
             }
         json_object = json.dumps(dict, indent=4)
         with open(self._path_to_usecase_config, 'w') as outfile:
@@ -112,5 +119,7 @@ class TrackingWindow(QWidget):
         A function that is triggered by the DropDown Menu labelled, Available
         Trackers
         '''
-        print(self._tracker_label_list[index] + ' tracker chosen.')
+        self.tracking_logger.info(self._tracker_label_list[index] +
+                                  ' tracker chosen.')
+
         self._selected_tracker_index = index
